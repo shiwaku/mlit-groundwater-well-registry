@@ -18,3 +18,6 @@ node_modules/
 __pycache__/
 .DS_Store
 Thumbs.db
+
+# QGIS検証用 GeoPackage（scripts/08_export_for_qgis.py で再生成可・62MB）
+output/f9_groundwater_wells_qgis.gpkg
