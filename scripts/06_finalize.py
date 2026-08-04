@@ -20,8 +20,11 @@
   GC_MUNI_RESOLVED     名寄せ後の市区町村名
   GC_N_TOWNS           重心を取った町字の件数（GC_LEVEL=oaza のとき）
   GC_CONFIDENCE        high / medium / low（下記 CONFIDENCE の定義を参照）
+  GC_SPREAD_KM         重心を取った町字群の広がり（重心からの二乗平均距離・km）。
+                       この値が大きい行は位置が粗い。GC_LEVEL=oaza のときに入る。
 """
 import json
+import math
 import re
 import unicodedata
 from collections import Counter, defaultdict
@@ -44,12 +47,27 @@ MIN_PREFIX = 2  # 後方一致で要求する前置（旧自治体名相当）�
 #             後者は変遷テーブルによる確定ではなく名称一致による推定である。
 #   low    … 市区町村代表点まで（A_city_fallback）、または旧コードを
 #             『旧自治体名＋大字名』の後方一致で推定した（B_town_suffix）。
+#
+# 格付けは実測に基づく。国土地理院DEMの標高と台帳の HEIGHT（2万5千分の1地形図
+# からの読み取り値＝独立系列）を1,203点で突き合わせ、起伏の交絡を避けるため
+# 低地（DEM 100m以下・939点）に絞って比較した結果が下記。
+#
+#   経路              標高差 中央値 / 90%ile / 50m超率
+#   A_oaza_exact         2.0m /  16.8m /  0.6%
+#   A_normalize          2.7m /  24.8m /  4.5%
+#   A_city_fallback      3.0m /  37.5m /  5.7%
+#   B_town_exact         3.4m /  34.2m /  5.7%
+#   B_town_suffix        4.1m /  43.3m /  8.8%
+#   A_oaza_prefix        9.9m /  47.3m /  8.8%   <- exact より明らかに劣る
+#
+# A_oaza_prefix は当初 medium としていたが、上記に加えて重心を取った町字群の
+# 広がりが最大17kmに達する例があることから low に落とした。
 CONFIDENCE = {
     "A_normalize": "high",
     "A_oaza_exact": "medium",
-    "A_oaza_prefix": "medium",
     "B_town_exact": "medium",
     "A_city_fallback": "low",
+    "A_oaza_prefix": "low",
     "B_town_suffix": "low",
 }
 
@@ -78,7 +96,19 @@ def load_town_master():
 
 
 def centroid(pts):
-    return sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+    """重心と、重心からの二乗平均距離（km）を返す。後者が位置の不確かさの目安になる。"""
+    n = len(pts)
+    cx = sum(p[0] for p in pts) / n
+    cy = sum(p[1] for p in pts) / n
+    if n == 1:
+        return cx, cy, 0.0
+    latr = math.radians(cy)
+    sq = 0.0
+    for x, y in pts:
+        dx = (x - cx) * 111.320 * math.cos(latr)
+        dy = (y - cy) * 110.574
+        sq += dx * dx + dy * dy
+    return cx, cy, math.sqrt(sq / n)
 
 
 def refine_a(unit, by_muni):
@@ -96,9 +126,10 @@ def refine_a(unit, by_muni):
             else:
                 hit = [r for r in rows if r[0].startswith(k) or r[1].startswith(k)]
             if hit:
-                lon, lat = centroid([(r[2], r[3]) for r in hit])
+                lon, lat, rms = centroid([(r[2], r[3]) for r in hit])
                 return {"lat": lat, "lng": lon, "level": "oaza",
-                        "method": f"A_oaza_{mode}", "used": cand, "n": len(hit)}
+                        "method": f"A_oaza_{mode}", "used": cand,
+                        "n": len(hit), "spread": rms}
     return None
 
 
@@ -117,11 +148,12 @@ def refine_b(unit, by_pref):
         if len(munis) != 1:
             continue  # 県内の複数自治体に該当。特定できないので採らない
         sub = [r for r in hit if r[0] == hit[0][0]]
-        lon, lat = centroid([(r[3], r[4]) for r in sub])
+        lon, lat, rms = centroid([(r[3], r[4]) for r in sub])
         return {"lat": lat, "lng": lon,
                 "level": "town" if len(sub) == 1 else "oaza",
                 "method": "B_town_suffix", "used": cand,
-                "muni_cd": hit[0][0], "muni": hit[0][1], "n": len(sub)}
+                "muni_cd": hit[0][0], "muni": hit[0][1],
+                "n": len(sub), "spread": rms}
     return None
 
 
@@ -196,6 +228,8 @@ def main() -> None:
         cols["GC_MUNI_RESOLVED"].append(r.get("muni", ""))
         cols["GC_N_TOWNS"].append(str(r.get("n", "")) if r.get("n") else "")
         cols["GC_CONFIDENCE"].append(CONFIDENCE.get(r["method"], ""))
+        sp = r.get("spread")
+        cols["GC_SPREAD_KM"].append(f"{sp:.3f}" if sp is not None else "")
     for k, v in cols.items():
         df[k] = v
 
