@@ -1,0 +1,8 @@
+{
+  "name": "kokjo-f9-geocode",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@geolonia/normalize-japanese-addresses": "3.1.3"
+  }
+}

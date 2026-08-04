@@ -1,0 +1,20 @@
+# 原本（scripts/00_download.py で再取得できるため追跡しない）
+data/raw/
+
+# Geolonia 住所マスタ（scripts/02_fetch_address_master.py で再取得可）
+# cache は約147MB、master_town.csv は約52MB あるので追跡しない。
+# master_city.csv（約100KB）は突合の確認に有用なので追跡する。
+data/address_master/cache/
+data/address_master/master_town.csv
+
+# 中間生成物（scripts/03〜05 で再生成可）
+work/
+
+# Node
+node_modules/
+
+# 一時ファイル
+*.pyc
+__pycache__/
+.DS_Store
+Thumbs.db
