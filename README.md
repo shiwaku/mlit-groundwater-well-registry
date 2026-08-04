@@ -12,12 +12,39 @@
 
 昭和27年度以降に累積された **深井戸（概ね30m以深）71,198件** の記録です。掘削時の地質、揚水試験による帯水層情報、水質検査結果を含みます。
 
-| ファイル | 内容 | 行 × 列 |
-|---|---|---|
-| `output/f9_groundwater_all.csv` | 47都道府県をマージしたもの（原本の項目のみ） | 71,198 × 48 |
-| `output/f9_groundwater_all_geocoded.csv` | 上記に緯度経度と精度情報を付与したもの | 71,198 × 57 |
+| ファイル | 内容 | 行 × 列 | サイズ |
+|---|---|---|---|
+| `output/f9_groundwater_all.csv` | 47都道府県をマージしたもの（原本の項目のみ） | 71,198 × 48 | 27MB |
+| `output/f9_groundwater_all_geocoded.csv` | 上記に緯度経度と精度情報を付与したもの | 71,198 × 57 | 32MB |
+| `output/f9_groundwater_wells.parquet` | **GeoParquet**（座標が付いた行のみ・点フィーチャ） | 64,873 × 56 | 8.5MB |
 
-文字コードは **UTF-8（BOMなし）**、改行は CRLF です。
+CSVの文字コードは **UTF-8（BOMなし）**、改行は CRLF です。
+
+### GeoParquet について
+
+GeoParquet **1.1.0**（WKB / EPSG:4326 / zstd圧縮）で、`covering`（bbox列）を含むため
+DuckDB spatial などから空間フィルタを効かせた範囲読みができます。
+
+```python
+import geopandas as gpd
+gdf = gpd.read_parquet("output/f9_groundwater_wells.parquet")
+gdf[gdf.GC_CONFIDENCE == "high"].explore()
+```
+
+```sql
+-- DuckDB
+SELECT NEN, ADR, DEP, PH, GC_LEVEL FROM 'output/f9_groundwater_wells.parquet'
+WHERE GC_CONFIDENCE = 'high' AND DEP > 200;
+```
+
+座標が付与できなかった6,325行はジオメトリを持てないため含まれていません（全行が必要な場合はCSVを参照）。
+原本の `X`/`Y` 列は全行空なので落としています。
+
+**型について。** 原本の列は原則そのまま文字列で保持しています。水質項目には
+`不検出` `痕跡` `微量` `Ca併記` のような定性値が最大24.3%（`NH4-N`）含まれており、
+数値化すると情報が落ちるためです。非空セルが100%数値であることを確認できた
+`HEIGHT` `DEP` `SC` `SCL` `Q_01` `QSP_01` `TEMP` `PH` の8列のみ `float64` に変換しています
+（`DIA` や `NWL_01` は `250～200` `自噴` `水なし` などを含むため文字列のまま）。
 
 ## なぜジオコーディングが必要か
 
@@ -109,18 +136,19 @@
 │   ├── 04_geocode.mjs              正規化エンジンで座標付与（track A）
 │   ├── 05_resolve_legacy_codes.py  合併前コードを町字名マッチで名寄せ（track B）
 │   ├── 06_finalize.py              結果を統合し精度フラグ付きで最終CSV出力
+│   ├── 07_to_geoparquet.py         GeoParquet 出力
 │   └── lib/adr_norm.py             ADR（所在地）の正規化と候補生成
 ├── data/
 │   ├── raw/{zip,doc}/              原本（gitignore・00 で再取得）
 │   └── address_master/             住所マスタ（cache と町字マスタは gitignore）
 ├── work/                           中間生成物（gitignore）
-└── output/                         成果物CSV
+└── output/                         成果物（CSV / GeoParquet）
 ```
 
 ## 再現手順
 
 ```bash
-pip install pandas openpyxl xlrd
+pip install pandas openpyxl xlrd geopandas pyarrow
 npm install
 
 python3 scripts/00_download.py              # 原本DL（zip 6.3MB + doc 13MB）
@@ -130,6 +158,7 @@ python3 scripts/03_build_geocode_input.py
 node    scripts/04_geocode.mjs              # 約38,600件・数分（中断しても再開可）
 python3 scripts/05_resolve_legacy_codes.py
 python3 scripts/06_finalize.py              # -> output/f9_groundwater_all_geocoded.csv
+python3 scripts/07_to_geoparquet.py         # -> output/f9_groundwater_wells.parquet
 ```
 
 `04_geocode.mjs` は結果を追記式に書き出すため、中断しても再実行すれば続きから処理します。
@@ -146,4 +175,4 @@ python3 scripts/06_finalize.py              # -> output/f9_groundwater_all_geoco
 住所データ API（`japanese-addresses-v2.geoloniamaps.com`）は現在無償公開されていますが、提供元により停止・変更される可能性があります。
 継続的な利用では自前でのホスティングが推奨されています。
 
-本リポジトリのスクリプトは MIT License です。出力CSVは元データの利用規約（PDL1.0）に従います。
+本リポジトリのスクリプトは MIT License です。出力データ（CSV / GeoParquet）は元データの利用規約（PDL1.0）に従います。
