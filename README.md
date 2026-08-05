@@ -491,6 +491,7 @@ Wayback Machine で年代別に追跡しました。当時の所管は**国土�
 
 ```bash
 pip install pandas openpyxl xlrd geopandas pyarrow
+pip install pymupdf scipy   # 09_pdf_truth.py（位置図PDFの解析）で必要
 npm install
 
 python3 scripts/00_download.py              # 原本DL（zip 6.3MB + doc 13MB）
@@ -518,6 +519,7 @@ python3 scripts/10_eval_accuracy.py --csv
 
 - 「[国土数値情報（全国地下水資料台帳調査）](https://nlftp.mlit.go.jp/kokjo/inspect/landclassification/water/f9_exp.html)」（国土交通省）をもとに加工・作成
 - 市区町村コードの照合に「[全国地方公共団体コード](https://www.soumu.go.jp/denshijiti/code.html)」（総務省）を使用
+- 位置図PDFのジオリファレンス（`09_pdf_truth.py`）の参照形状に「[国土数値情報（行政区域データ N03）](https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-v3_1.html)」（国土交通省・2024年1月1日版）を使用
 - ジオコーディングに [@geolonia/normalize-japanese-addresses](https://github.com/geolonia/normalize-japanese-addresses) v3.1.3（MIT）を使用。
   住所データ [@geolonia/japanese-addresses-v2](https://github.com/geolonia/japanese-addresses-v2) はデジタル庁「[アドレス・ベース・レジストリ](https://www.digital.go.jp/policies/base_registry_address)」を元に加工されたものです
 
@@ -525,3 +527,9 @@ python3 scripts/10_eval_accuracy.py --csv
 継続的な利用では自前でのホスティングが推奨されています。
 
 本リポジトリのスクリプトは MIT License です。出力データ（CSV / GeoParquet）は元データの利用規約（PDL1.0）に従います。
+
+> [!NOTE]
+> `09_pdf_truth.py` が使う **PyMuPDF は AGPL-3.0**（または商用ライセンス）です。本リポジトリのコードは
+> MIT のままですが、このスクリプトを組み込んだものを配布したりネットワークサービスとして提供する場合は
+> AGPL の条件を確認してください。位置図PDFの解析にしか使っていないので、他のスクリプトには影響しません。
+> ほかの依存は pandas / geopandas / shapely / numpy / scipy（BSD-3-Clause）と pyarrow（Apache-2.0）です。
