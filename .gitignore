@@ -7,6 +7,9 @@ data/raw/
 data/address_master/cache/
 data/address_master/master_town.csv
 
+# N03 行政区域（scripts/09_pdf_truth.py が再取得可・都道府県あたり数十MB）
+data/n03/
+
 # 中間生成物（scripts/03〜05 で再生成可）
 work/
 
@@ -21,3 +24,6 @@ Thumbs.db
 
 # QGIS検証用 GeoPackage（scripts/08_export_for_qgis.py で再生成可・62MB）
 output/f9_groundwater_wells_qgis.gpkg
+
+# 正解データの GeoPackage（scripts/09_pdf_truth.py --gpkg で再生成可。CSVを追跡する）
+output/f9_pdf_truth_2012.gpkg
