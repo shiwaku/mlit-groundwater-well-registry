@@ -27,3 +27,8 @@ output/f9_groundwater_wells_qgis.gpkg
 
 # 正解データの GeoPackage（scripts/09_pdf_truth.py --gpkg で再生成可。CSVを追跡する）
 output/f9_pdf_truth_2012.gpkg
+
+# ビューワ用のベクタタイル（scripts/14_build_pmtiles.py で parquet から再生成可・15MB）。
+# 更新のたびに 15MB のバイナリを積むのを避けるため追跡しない。
+# GitHub Pages へは .github/workflows/pages.yml がその場で作って同梱する。
+output/f9_wells_2003.pmtiles

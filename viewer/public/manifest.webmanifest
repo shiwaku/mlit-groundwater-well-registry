@@ -1,0 +1,17 @@
+{
+  "name": "全国地下水資料台帳 井戸マップ（2003年版）",
+  "short_name": "井戸マップ",
+  "description": "国土交通省「全国地下水資料台帳調査」（F9）2003年版の深井戸57,847点を、位置精度で色分けして表示する非公式ビューワ",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#2a78d6",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

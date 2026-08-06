@@ -25,6 +25,9 @@
 
 CSVの文字コードは **UTF-8（BOMなし）**、改行は CRLF です。
 
+**地図で見る** → https://shiwaku.github.io/mlit-groundwater-well-registry/ （2003年版の57,847点を位置精度で色分け。
+[ビューワ（`viewer/`）](#ビューワviewer)）
+
 > [!TIP]
 > **座標の精度が要るなら `f9_wells_2003` の `POS_QUALITY == "unique"` を使ってください。**
 > 2003年版は原本に緯度経度が入っており、実測誤差は**中央値約300m**とジオコーディングした現行版
@@ -621,6 +624,69 @@ DBFは45項目で、現行版とほぼ同じ調査項目（`NEN` `ADR` `DEP` `PH
 なお元データはページ説明では「パイプ区切り」とありますが、実際は **CP932 / TAB区切り / ヘッダ行あり** で、
 `|` はフィールド内の多値区切り（`SCREENS`=`18-29|34.5-45.5`、`GEOLOGY`=`深度|化石|地質名称` の繰り返し）です。
 
+## ビューワ（`viewer/`）
+
+2003年版の **57,847点を全部載せて、位置精度で色分けする** 地図ビューワを同梱しています。
+MapLibre GL JS + [PMTiles](https://github.com/protomaps/PMTiles) + 国土地理院タイル（Vite + TypeScript / ライト・ダーク）。
+
+公開先 → https://shiwaku.github.io/mlit-groundwater-well-registry/
+
+![ビューワの画面](docs/viewer.png)
+
+**位置の悪い点を消さずに色で区別しています。** `fallback`（16,081点・市区町村代表点）を落とせば
+見た目はきれいになりますが、「表示されている点はすべて実位置」という誤解を招きます。
+どの主題で色分けしていても **`fallback` だけは塗らずに輪郭のみ** で描くので、
+色を追わなくても「この点の位置は信用できない」ことが分かります。
+
+### 色分け（主題）
+
+| 主題 | 内容 |
+|---|---|
+| **位置精度**（既定） | `POS_QUALITY`。実位置（単独の座標）／実位置（同一サイト）／市区町村代表点 |
+| 所在地からの距離 | `ADR_DIST_KM`。自分の町名の位置からどれだけ離れているか。5段階＋判定不能 |
+| 掘削深度 | `DEP`。50 / 100 / 150 / 250m 区切り |
+| 調査年度 | `NEN`。年代区切り＋不明 |
+| 地下水使用目的 | `USE`。生活用・都市用・工業用・農業用・その他・未利用 |
+
+凡例の各行はクリックでその区分だけの表示に切り替わります。ほかに位置精度のチェックボックス、
+`ADR_DIST_KM` の上限、掘削深度の下限で絞り込めます。
+
+配色は `data/viewer_styles.json` が唯一の出所です。カテゴリ配色は
+[色覚多様性を含めた分離度の検証](https://github.com/shiwaku/mlit-groundwater-well-registry/blob/main/data/viewer_styles.json)を通したものを使っており、
+検証結果と、7分類（使用目的）では色だけでは足りないこと・その代わりに凡例クリックでの単独表示を用意したことを
+同ファイルのコメントに残しています。
+
+### 現地確認
+
+点をクリックすると全属性のポップアップが開き、**Google マップ / ストリートビュー / 地理院地図** への
+リンクが付きます。座標はタイルのジオメトリ（z9 で約19mに量子化される）ではなく、
+原本の緯度経度をそのまま使っています。
+`fallback` の点では、リンクを開く前に「井戸の位置ではない」旨を出します。
+
+背景は淡色（地理院 最適化ベクトルタイル）／標準地図／全国最新写真から選べます。
+標準地図は町名ラベルが出るので、点が `ADR` の町名の範囲に落ちているかの確認に使えます。
+
+### タイルについて
+
+`scripts/14_build_pmtiles.py` が `output/f9_wells_2003.parquet` から
+`output/f9_wells_2003.pmtiles`（約15MB）を作ります（要 [tippecanoe](https://github.com/felt/tippecanoe)）。
+ズームは z4〜z9 で、**z8 以上は全57,847点がそのまま入ります**。z7 以下は
+タイルに入りきらないぶんが密なところから落ちます（データの欠落ではありません）。
+z9 のタイル内座標の刻みは約19mで、原本の座標の粒度（日本測地系の秒単位＝約25〜31m）より細かいため、
+これ以上の maxzoom は情報を増やしません。
+
+PMTiles は 15MB あり更新のたびに積むとリポジトリが太るので **追跡していません**。
+GitHub Pages へは [`.github/workflows/pages.yml`](.github/workflows/pages.yml) が
+追跡済みの parquet からその場で作って同梱します。
+
+```bash
+python3 scripts/14_build_pmtiles.py
+cd viewer && npm install && npm run dev   # http://localhost:8000
+```
+
+`npm run dev` は開発サーバーが `../output/*.pmtiles` を Range 配信します
+（pmtiles.js は HTTP Byte Serving を要求するため）。
+
 ## ディレクトリ構成
 
 ```
@@ -640,10 +706,14 @@ DBFは45項目で、現行版とほぼ同じ調査項目（`NEN` `ADR` `DEP` `PH
 │   ├── 11_download_shp2003.py      座標付き2003年版（地域別シェープ）をWARPから取得
 │   ├── 12_shp2003_to_dataset.py    上記8本を1つのCSV / GeoParquet へ
 │   ├── 13_eval_2003_funabashi.py   2003年版の座標を自治体の防災井戸データと突合
+│   ├── 14_build_pmtiles.py         2003年版 -> PMTiles（ビューワ用ベクタタイル）
 │   └── lib/
 │       ├── adr_norm.py             ADR（所在地）の正規化と候補生成
 │       └── pdf_geo.py              位置図PDFの解析とジオリファレンス
+├── viewer/                         MapLibre + PMTiles ビューワ（Vite + TypeScript）
 ├── data/
+│   ├── viewer_styles.json          ビューワの配色・凡例・属性和名（唯一の出所）
+│   ├── viewer_stats.json           ビューワが出す母数（14 が生成）
 │   ├── raw/{zip,doc}/              原本（gitignore・00 で再取得）
 │   ├── raw/f9_pdf/                 位置図PDF 37本（gitignore・09 で再取得）
 │   ├── raw/shp2003/                座標付き2003年版の地域別zip 8本（gitignore・11 で再取得）
@@ -652,6 +722,7 @@ DBFは45項目で、現行版とほぼ同じ調査項目（`NEN` `ADR` `DEP` `PH
 │   └── n03/                        N03 行政区域（gitignore・09 で再取得）
 ├── work/                           中間生成物（gitignore）
 └── output/                         成果物（CSV / GeoParquet / GeoPackage）
+                                    PMTiles だけは gitignore（14 で再生成）
 ```
 
 ## 再現手順
@@ -681,6 +752,10 @@ python3 scripts/10_eval_accuracy.py --csv
 python3 scripts/11_download_shp2003.py      # WARP から地域別zip 8本（約4.6MB）
 python3 scripts/12_shp2003_to_dataset.py    # -> output/f9_wells_2003.csv / .parquet
 python3 scripts/13_eval_2003_funabashi.py --csv   # 自治体データと突合して誤差を実測
+
+# ビューワを動かすとき（tippecanoe が必要）
+python3 scripts/14_build_pmtiles.py         # -> output/f9_wells_2003.pmtiles（約15MB）
+cd viewer && npm install && npm run dev     # http://localhost:8000
 ```
 
 `04_geocode.mjs` は結果を追記式に書き出すため、中断しても再実行すれば続きから処理します。
