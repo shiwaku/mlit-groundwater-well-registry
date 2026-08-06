@@ -23,9 +23,22 @@
 現行版（f9_groundwater_all.csv・空欄を空欄のまま持つ）を使うこと。
 
 座標について:
-  `S_TKY2JGD` 列があるとおり日本測地系から JGD2000 へ変換済み。逆変換すると
-  秒がほぼ整数に揃うため（残差の中央値 0.025 秒）、原本の粒度は
-  日本測地系の秒単位＝緯度で約30m。EPSG:4326 として扱ってよい。
+  日本測地系から JGD2000 へ**変換済み**なので EPSG:4326 として扱ってよい。
+  保存値の緯度の秒は整数に揃っていないが（0.05秒以内は12.0%＝ほぼランダム）、
+  日本測地系へ逆変換すると揃う（71.9%）。原本が日本測地系の整数秒で記録されて
+  いたことの裏返しで、粒度は緯度で約30m。船橋市の防災用井戸8点を番地まで
+  ジオコーディングした実位置と突き合わせても、保存値のままなら平均ずれ131m
+  （向きはばらばら）、日本測地系とみなして変換すると北483m・西334mの系統ズレが
+  出る。二重変換しないこと。
+
+位置の品質（`POS_QUALITY` 列）:
+  **27.8%は実位置ではない。** 同一座標に複数行が重なり、しかも町名が異なる
+  ものがある（大阪市中央区の1点に71種類の町名）。市区町村代表点への
+  フォールバックで、精度は市区町村レベルしかない。判別できるよう分類した。
+
+    unique   36,415行 (63.0%)  単独の座標。実位置とみなせる
+    site      5,351行 ( 9.3%)  複数行が同一座標だが町名は同一。同一サイトの井戸群
+    fallback 16,081行 (27.8%)  複数行が同一座標で町名が異なる。実位置ではない
 """
 import csv
 import struct
@@ -92,6 +105,26 @@ def read_shapefile_zip(path: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def add_pos_quality(df: pd.DataFrame) -> pd.DataFrame:
+    """同一座標の重なり方から位置の品質を分類する。
+
+    町名が異なる行が同じ座標に載っていれば、それは井戸の位置ではなく
+    市区町村代表点へのフォールバックである。町名が同一なら同一サイトの
+    井戸群と解釈できるので区別する（ADR が空の場合は判断材料が無いため
+    fallback 側に倒す）。
+    """
+    xy = df.LON.astype(str) + "," + df.LAT.astype(str)
+    grp = df.assign(_xy=xy).groupby("_xy")
+    n = grp.LON.transform("size")
+    n_adr = grp.ADR.transform("nunique")
+    has_adr = grp.ADR.transform(lambda s: (s != "").all())
+
+    quality = pd.Series("fallback", index=df.index)
+    quality[(n >= 2) & (n_adr <= 1) & has_adr] = "site"
+    quality[n == 1] = "unique"
+    return df.assign(POS_N=n.astype(int), POS_QUALITY=quality)
+
+
 def classify_temp(v: str) -> str:
     """TEMP 列の中身が水温か地質記述かを判別する。"""
     if not v:
@@ -120,8 +153,10 @@ def main() -> None:
     df["TEMP_KIND"] = df.TEMP.map(classify_temp)
     df["MUNI_CD"] = (df.PREF.astype(int).map("{:02d}".format)
                      + df.CITY.astype(int).map("{:03d}".format))
+    df = add_pos_quality(df)
 
-    front = ["REGION", "NEN", "PREF", "CITY", "MUNI_CD", "ADR", "LON", "LAT"]
+    front = ["REGION", "NEN", "PREF", "CITY", "MUNI_CD", "ADR", "LON", "LAT",
+             "POS_QUALITY", "POS_N"]
     df = df[front + [c for c in df.columns if c not in front]]
 
     OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
@@ -145,6 +180,10 @@ def main() -> None:
     print(f"  {len(df):,} 点 × {len(df.columns)} 列")
     print(f"  bbox: {[round(v, 4) for v in gdf.total_bounds]}")
     print(f"  調査年次 {df.NEN.min()}〜{df.NEN.max()} / {df.MUNI_CD.nunique():,} 市区町村")
+    print("\n位置の品質:")
+    for k in ("unique", "site", "fallback"):
+        v = (df.POS_QUALITY == k).sum()
+        print(f"  {k:9s} {v:7,d}  ({v/len(df)*100:4.1f}%)")
     print("\nTEMP 列の中身:")
     for k, v in df.TEMP_KIND.value_counts().items():
         print(f"  {k or '(空)':9s} {v:7,d}")
