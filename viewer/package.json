@@ -1,0 +1,21 @@
+{
+  "name": "f9-wells-2003-viewer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "全国地下水資料台帳（F9）2003年版の井戸57,847点を、位置精度で色分けして表示するビューワ",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "maplibre-gl": "^4.7.1",
+    "pmtiles": "^3.2.1"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

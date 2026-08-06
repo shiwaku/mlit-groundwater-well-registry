@@ -1,0 +1,628 @@
+:root {
+  --surface-solid: #ffffff;
+  --ink: #14161a;
+  --ink-2: #5a6069;
+  --ink-3: #8b919b;
+  --line: rgba(20, 22, 26, 0.1);
+  --line-2: rgba(20, 22, 26, 0.16);
+  --accent: #2a78d6;
+  --accent-ink: #ffffff;
+  --warn: #d03b3b;
+  --track: rgba(20, 22, 26, 0.14);
+  --hover: rgba(20, 22, 26, 0.05);
+  --shadow: 0 10px 30px -10px rgba(16, 24, 40, 0.35), 0 2px 8px -4px rgba(16, 24, 40, 0.2);
+  --radius-sm: 10px;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --surface-solid: #1b1e24;
+  --ink: #f2f4f7;
+  --ink-2: #b3b9c4;
+  --ink-3: #7d838e;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-2: rgba(255, 255, 255, 0.16);
+  --accent: #4f97f0;
+  --accent-ink: #0a0c10;
+  --warn: #e66767;
+  --track: rgba(255, 255, 255, 0.16);
+  --hover: rgba(255, 255, 255, 0.07);
+  --shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.6), 0 2px 8px -4px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', 'Hiragino Kaku Gothic ProN', sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---- パネル ---- */
+.panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  width: 312px;
+  max-width: 88vw;
+  /* backdrop-filter（すりガラス）は使わない。内部スクロールを持つパネルで
+     実GPU合成が破綻し、白化・欠けが起きることがあるため不透明にする。 */
+  background: var(--surface-solid);
+  border-right: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.panel.collapsed {
+  bottom: auto;
+  height: auto;
+}
+
+.panel-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 12px 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.brand-mark {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.panel h1 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  /* CJK は既定だと任意の文字間で折り返すため「井戸マ／ップ」のように割れる。
+     keep-all で語中の改行を止め、空白位置だけで折り返させる。 */
+  word-break: keep-all;
+}
+
+.panel h1 small {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+
+.head-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.icon-btn {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.icon-btn:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.panel-body {
+  padding: 14px;
+  display: grid;
+  gap: 18px;
+  align-content: start;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.panel.collapsed .panel-body,
+.panel.collapsed .panel-foot {
+  display: none;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.sub-label {
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.mini-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.mini-btn:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+.hint-sub {
+  color: var(--ink-3);
+  font-size: 10.5px;
+}
+
+/* ---- 主題（色分け）の切替 ---- */
+.themes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.theme-btn {
+  appearance: none;
+  border: 1px solid var(--line-2);
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.theme-btn:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.theme-btn[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* ---- 凡例（各行がフィルタボタン） ---- */
+.legend {
+  display: grid;
+  gap: 2px;
+}
+
+.lg-row {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.lg-row:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.lg-row[aria-pressed='true'] {
+  background: var(--hover);
+  color: var(--ink);
+  font-weight: 700;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.lg-sw {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+}
+
+/* 「輪郭のみ」の点（市区町村代表点）を凡例でもそのまま表現する */
+.lg-sw-hollow {
+  background: transparent;
+  border-width: 2.5px;
+  border-style: solid;
+}
+
+/* ---- チェック / スライダー ---- */
+.checks {
+  display: grid;
+  gap: 2px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.check:hover {
+  background: var(--hover);
+}
+
+.check input[type='checkbox'] {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px;
+}
+
+.range-label {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+
+.range-row input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  height: 8px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.range-val {
+  flex: none;
+  width: 74px;
+  text-align: right;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.count {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+
+.count b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-foot {
+  flex: none;
+  padding: 12px 14px;
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--ink-3);
+  border-top: 1px solid var(--line);
+}
+
+.panel-foot a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.panel-foot a:hover {
+  text-decoration: underline;
+}
+
+/* ---- ポップアップ ---- */
+.maplibregl-popup-content {
+  background: var(--surface-solid);
+  color: var(--ink);
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  font: inherit;
+  /* 属性が多いので、画面より高くならないように全体でも上限をかける */
+  max-height: 78dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.maplibregl-popup-close-button {
+  color: var(--ink-3);
+  font-size: 18px;
+  padding: 2px 7px;
+}
+
+.maplibregl-popup-tip {
+  display: none;
+}
+
+.pp-title {
+  font-size: 14px;
+  font-weight: 700;
+  padding-right: 18px;
+}
+
+.pp-badge {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  border: 1px solid currentColor;
+}
+
+.pp-q-unique {
+  color: var(--accent);
+}
+
+.pp-q-site {
+  color: #008300;
+}
+
+.pp-q-fallback {
+  color: var(--warn);
+}
+
+/* ---- 現地確認リンク ---- */
+.pp-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.pp-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.pp-links a:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.pp-warn {
+  margin: 8px 0 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  color: var(--warn);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.pp-dl {
+  display: grid;
+  /* 列幅を固定比にする。auto にすると項目名が長い行（「地下水使用目的」など）に
+     引っ張られて値の列が潰れ、"1311/4" のように数値まで折り返される。 */
+  grid-template-columns: 42% 1fr;
+  gap: 3px 12px;
+  margin: 10px 0 0;
+  max-height: 300px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pp-dl dt {
+  color: var(--ink-2);
+  font-size: 11.5px;
+  /* break-all は英字語まで割る（"uniq/ue"）。入りきらないときだけ割る anywhere にする。 */
+  overflow-wrap: anywhere;
+}
+
+.pp-dl dd {
+  margin: 0;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.pp-note {
+  display: block;
+  color: var(--ink-3);
+  font-weight: 400;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.pp-mark {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+.pp-foot {
+  margin: 8px 0 0;
+  padding-top: 7px;
+  border-top: 1px solid var(--line);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+/* ---- 背景地図スイッチャー（右下） ---- */
+.basemap-switch {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-solid);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+
+.basemap-switch button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.basemap-switch button:hover {
+  color: var(--ink);
+}
+
+.basemap-switch button[aria-selected='true'] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* ---- MapLibre コントロールの馴染ませ ---- */
+.maplibregl-ctrl-group {
+  background: var(--surface-solid);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.maplibregl-ctrl-attrib {
+  font-size: 10px;
+}
+
+/* ---- レスポンシブ（モバイルはボトムシート） ---- */
+@media (max-width: 640px) {
+  .panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-width: none;
+    height: auto;
+    max-height: 66dvh;
+    border: none;
+    border-top: 1px solid var(--line);
+  }
+
+  .panel.collapsed {
+    max-height: none;
+    /* デスクトップ用の bottom:auto を打ち消す（top:auto なのでパネルが上へ飛ぶ） */
+    bottom: 0;
+  }
+
+  .panel-head {
+    padding: 14px 12px;
+  }
+
+  .panel-foot {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* 畳んだパネルのヘッダ分だけ地図コントロールを持ち上げる */
+  .maplibregl-ctrl-bottom-right,
+  .maplibregl-ctrl-bottom-left {
+    margin-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .check,
+  .lg-row {
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+
+  .basemap-switch button {
+    padding: 7px 14px;
+  }
+
+  .maplibregl-ctrl-top-right {
+    margin-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}

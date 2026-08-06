@@ -1,0 +1,25 @@
+{
+  "total": 57847,
+  "posQuality": {
+    "unique": 36415,
+    "fallback": 16081,
+    "site": 5351
+  },
+  "use": {
+    "1": 28064,
+    "3": 12162,
+    "4": 6024,
+    "0": 4226,
+    "5": 3496,
+    "2": 3302,
+    "6": 573
+  },
+  "distResolved": 24355,
+  "nenRange": [
+    1952,
+    2003
+  ],
+  "minzoom": 4,
+  "maxzoom": 9,
+  "completeFromZoom": 8
+}

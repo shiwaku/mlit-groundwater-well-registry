@@ -1,0 +1,89 @@
+name: deploy-viewer
+
+# ビューワ（viewer/）を GitHub Pages へ配信する。
+# PMTiles はリポジトリに置かず（15MB のバイナリを更新のたびに積むのを避けるため）、
+# 追跡している output/f9_wells_2003.parquet からこのジョブで毎回作り直す。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "viewer/**"
+      - "data/viewer_styles.json"
+      - "scripts/14_build_pmtiles.py"
+      - "output/f9_wells_2003.parquet"
+      - ".github/workflows/pages.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  # Pages のサブパス（= リポジトリ名）配下に PMTiles を置く
+  PMTILES_BASE: /mlit-groundwater-well-registry/pmtiles
+  TIPPECANOE_VERSION: "2.80.0"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # apt には無い（あっても版が古い）ので upstream をソースから入れる。
+      # 版でキーを切ってキャッシュするので、通常はビルドが走らない。
+      - name: Cache tippecanoe
+        id: tippecanoe-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/tippecanoe
+          key: tippecanoe-${{ runner.os }}-${{ env.TIPPECANOE_VERSION }}
+
+      - name: Build tippecanoe
+        if: steps.tippecanoe-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update && sudo apt-get install -y libsqlite3-dev zlib1g-dev
+          git clone --depth 1 --branch "$TIPPECANOE_VERSION" https://github.com/felt/tippecanoe.git /tmp/tippecanoe
+          make -C /tmp/tippecanoe -j"$(nproc)" tippecanoe
+          mkdir -p ~/.local/bin
+          cp /tmp/tippecanoe/tippecanoe ~/.local/bin/
+
+      - name: Build PMTiles
+        run: |
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          pip install --quiet pandas pyarrow
+          python scripts/14_build_pmtiles.py
+          ls -la output/f9_wells_2003.pmtiles
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: viewer/package-lock.json
+
+      - name: Build viewer
+        working-directory: viewer
+        run: |
+          npm ci
+          VITE_PMTILES_BASE="$PMTILES_BASE" npm run build
+
+      - name: Bundle PMTiles
+        run: |
+          mkdir -p viewer/dist/pmtiles
+          cp output/f9_wells_2003.pmtiles viewer/dist/pmtiles/
+          touch viewer/dist/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: viewer/dist
+      - id: deployment
+        uses: actions/deploy-pages@v4
