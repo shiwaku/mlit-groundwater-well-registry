@@ -26,9 +26,13 @@
 
   `-r1` で tippecanoe 既定のズーム別間引きを止めたうえで、タイルが
   `--maximum-tile-bytes` を超えたときだけ密なところから落とす（--drop-densest-as-needed）。
-  結果として **z8 以上は全57,847点がそのまま入る**。z7 以下は入りきらないぶんが落ちる:
+  結果として **最大ズーム z9 には全57,847点がそのまま入る**。z8 以下は入りきらないぶんが落ちる
+  （tippecanoe 2.79.0 での実測）:
 
-    z4  9,422 / z5  9,337 / z6 13,652 / z7 29,506 / z8以上 全点
+    z4 7,796 / z5 7,728 / z6 11,589 / z7 19,587 / z8 44,604 / z9 全点
+
+  どこまで入るかは tippecanoe の版で変わる（2.80.0 では z8 でも全点入った）。
+  下の completeFromZoom は保守的に maxzoom を書いている。
 
   低ズームで欠けるのは表示の都合であってデータの欠落ではない。ビューワの件数表示に
   描画中のフィーチャ数を使うと縮尺で数が変わって誤解を招くため、件数は
@@ -160,7 +164,7 @@ def write_stats(df: pd.DataFrame) -> None:
                      int(pd.to_numeric(df.NEN, errors="coerce").max())],
         "minzoom": MINZOOM,
         "maxzoom": MAXZOOM,
-        "completeFromZoom": 8,
+        "completeFromZoom": MAXZOOM,
     }
     out = ROOT / "data" / "viewer_stats.json"
     out.write_text(json.dumps(stats, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
