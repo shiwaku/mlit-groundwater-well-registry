@@ -670,7 +670,7 @@ MapLibre GL JS + [PMTiles](https://github.com/protomaps/PMTiles) + 国土地理�
 
 `scripts/14_build_pmtiles.py` が `output/f9_wells_2003.parquet` から
 `output/f9_wells_2003.pmtiles`（約15MB）を作ります（要 [tippecanoe](https://github.com/felt/tippecanoe)）。
-ズームは z4〜z9 で、**z8 以上は全57,847点がそのまま入ります**。z7 以下は
+ズームは z4〜z9 で、**最大ズーム z9 には全57,847点がそのまま入ります**。z8 以下は
 タイルに入りきらないぶんが密なところから落ちます（データの欠落ではありません）。
 z9 のタイル内座標の刻みは約19mで、原本の座標の粒度（日本測地系の秒単位＝約25〜31m）より細かいため、
 これ以上の maxzoom は情報を増やしません。

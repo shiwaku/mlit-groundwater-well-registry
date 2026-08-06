@@ -26,7 +26,7 @@ concurrency:
 env:
   # Pages のサブパス（= リポジトリ名）配下に PMTiles を置く
   PMTILES_BASE: /mlit-groundwater-well-registry/pmtiles
-  TIPPECANOE_VERSION: "2.80.0"
+  TIPPECANOE_VERSION: "2.79.0"
 
 jobs:
   deploy:
