@@ -339,7 +339,6 @@ class BasemapControl implements maplibregl.IControl {
     this.el.className = 'maplibregl-ctrl basemap-switch'
     const defs: [Basemap, string][] = [
       ['pale', '淡色'],
-      ['std', '標準'],
       ['photo', '写真'],
     ]
     for (const [b, label] of defs) {
