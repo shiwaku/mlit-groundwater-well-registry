@@ -87,11 +87,9 @@ function buildDarkStyle(): StyleSpecification {
 /**
  * 背景地図。
  *   pale  地理院 最適化ベクトルタイル（淡色地図風）。ダークはこれを明度反転して作る
- *   std   地理院 標準地図（ラスタ）。町名ラベルが出るので、点が ADR の町名の
- *         範囲に落ちているかを目で確かめるのに使う
  *   photo 地理院 全国最新写真（シームレス）。現地の状況を見るのに使う
  */
-export type Basemap = 'pale' | 'std' | 'photo'
+export type Basemap = 'pale' | 'photo'
 
 const GSI_ATTR =
   '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">地理院タイル</a>'
@@ -111,10 +109,6 @@ function rasterStyle(id: string, tiles: string, maxzoom: number, attribution: st
 }
 
 export function getBasemapStyle(base: Basemap, theme: Theme): StyleSpecification {
-  if (base === 'std') {
-    return rasterStyle('std', 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', 18,
-      `${GSI_ATTR}（標準地図）`)
-  }
   if (base === 'photo') {
     return rasterStyle('photo', 'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', 18,
       `${GSI_ATTR}（全国最新写真）`)
