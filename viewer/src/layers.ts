@@ -177,7 +177,11 @@ export function initialFilter(): FilterState {
   return {
     posq: new Set<string>(DEFAULT_POSQ),
     maxDist: null,
-    includeUnknownDist: true,
+    // 既定では ADR_DIST_KM が判定不能の点も隠す。判定不能は「座標が悪い」ではなく
+    // 「県内で一意に定まる町字が住所マスタに無く、突合できなかった」という意味なので、
+    // 落ちる 20,963 点の座標が誤っているわけではない。それでも既定は
+    // 「独立した経路で位置を裏取りできた点」に揃えている。
+    includeUnknownDist: false,
     minDep: 0,
     isolate: null,
   }
@@ -233,13 +237,18 @@ export function filterExpr(def: ThemeDef, f: FilterState): FilterSpecification {
 }
 
 /**
- * 位置精度フィルタだけを反映した母数。
- * 距離・深度のフィルタは行ごとの値が手元に無いので数えられない。数えられないものを
- * 推定して出すより、位置精度の内訳だけを正確に出すほうがよい。
+ * 位置精度と「判定不能を含めるか」を反映した母数。
+ * 距離の上限と深度の下限は行ごとの値が手元に無いので数えられない。数えられないものを
+ * 推定して出すより、正確に出せるところだけを出すほうがよい。
+ *
+ * 戻り値の exact が false なら、実際に描かれる点はこれより少ない。
  */
-export function selectedTotal(f: FilterState): number {
-  const c = STATS.posQuality as Record<string, number>
-  return [...f.posq].reduce((a, k) => a + (c[k] ?? 0), 0)
+export function selectedTotal(f: FilterState): { n: number; exact: boolean } {
+  const all = STATS.posQuality as Record<string, number>
+  const resolved = STATS.posQualityDistResolved as Record<string, number>
+  const c = f.includeUnknownDist ? all : resolved
+  const n = [...f.posq].reduce((a, k) => a + (c[k] ?? 0), 0)
+  return { n, exact: f.maxDist === null && f.minDep === 0 && !f.isolate }
 }
 
 // ---- ポップアップ ----

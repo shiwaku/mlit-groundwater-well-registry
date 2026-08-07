@@ -160,6 +160,13 @@ def write_stats(df: pd.DataFrame) -> None:
         "posQuality": {k: int(v) for k, v in df.POS_QUALITY.value_counts().items()},
         "use": {str(k): int(v) for k, v in df.USE.value_counts().items()},
         "distResolved": int(dist.notna().sum()),
+        # 位置精度 × ADR_DIST_KM が判定できたか、のクロス集計。
+        # ビューワは既定で判定不能を隠すので、この2つを掛けた母数を出せないと
+        # 「選択中 n 件」が実際の描画点数とずれる。
+        "posQualityDistResolved": {
+            str(k): int(v)
+            for k, v in df.POS_QUALITY[dist.notna()].value_counts().items()
+        },
         "nenRange": [int(pd.to_numeric(df.NEN, errors="coerce").replace(0, pd.NA).min()),
                      int(pd.to_numeric(df.NEN, errors="coerce").max())],
         "minzoom": MINZOOM,
