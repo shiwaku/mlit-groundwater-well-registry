@@ -246,11 +246,152 @@ def search() -> None:
         print(f"  [{org[:12]:12s}] {title[:52]:52s} {meta}")
 
 
+# 属性の拾い方。列名は自治体ごとにばらばらなので、位置以外はこの手がかりで拾う。
+NAME_HINTS = ("名称", "施設名", "設置場所", "設置施設名称", "イベントの名称", "name")
+# 住所しか無く、ジオコーディングが要る自治体（都道府県名を補ってから引く）
+GEOCODE_PREFIX = {"funabashi.csv": "千葉県船橋市", "nerima_bousai.csv": "", "nerima_gakkou.csv": ""}
+GSI_URL = "https://msearch.gsi.go.jp/address-search/AddressSearch?q="
+
+
+def geocode(address: str) -> tuple[float, float] | None:
+    """国土地理院の住所検索APIで番地まで解決する（13_eval_2003_funabashi.py と同じ経路）。"""
+    try:
+        req = urllib.request.Request(GSI_URL + urllib.parse.quote(address), headers=UA)
+        with urllib.request.urlopen(req, timeout=30) as f:
+            hits = json.load(f)
+    except Exception:  # noqa: BLE001
+        return None
+    if not hits:
+        return None
+    lon, lat = hits[0]["geometry"]["coordinates"]
+    return lon, lat
+
+
+def col_index(rows: list[list[str]], hints: tuple[str, ...]) -> int | None:
+    """列名から列の位置を探す。ヘッダが2段の体裁があるので先頭3行を見る。"""
+    for r in rows[:3]:
+        for i, c in enumerate(r):
+            h = norm(c)
+            if any(norm(x) in h for x in hints):
+                return i
+    return None
+
+
+def addr_index(rows: list[list[str]]) -> int | None:
+    """住所の列を選ぶ。列名だけで選ぶと練馬区の「所在地_全国地方公共団体コード」
+    （値は 131202）を拾ってしまうので、住所らしい値がいちばん多い列を採る。"""
+    pat = re.compile(r"[0-9０-９]+\s*[-－‐ー の丁目番地]+\s*[0-9０-９]")
+
+    def score(i: int) -> int:
+        return sum(
+            1 for r in rows[1:]
+            if i < len(r) and pat.search(r[i]) and any(ch in r[i] for ch in "市区町村丁目番地")
+        )
+
+    width = max((len(r) for r in rows), default=0)
+    best, best_score = None, 0
+    for i in range(width):
+        s = score(i)
+        if s > best_score:
+            best, best_score = i, s
+    if best is not None:
+        return best
+    return col_index(rows, ADDR_HINTS)
+
+
+def features_of(fn: str, rows: list[list[str]]) -> list[dict]:
+    """1ファイルを GeoJSON のフィーチャ列にする。
+
+    座標を持つものはその値を使い、住所しか無いものは番地までジオコーディングする。
+    どちらで得た座標かは `POS_SOURCE` に残す。混ぜたまま渡すと、
+    ジオコーディング由来の点を原本の実測座標と誤解されるため。
+    """
+    lat_i = col_index(rows, ("緯度", "lat"))
+    lon_i = col_index(rows, ("経度", "lon"))
+    loc_i = col_index(rows, ("location",))
+    name_i = col_index(rows, NAME_HINTS)
+    addr_i = addr_index(rows)
+    depth_i = col_index(rows, DEPTH_HINTS)
+
+    def cell(r: list[str], i: int | None) -> str:
+        return r[i].strip() if i is not None and i < len(r) else ""
+
+    feats = []
+    for r in rows[1:]:
+        if not any(c.strip() for c in r):
+            continue
+        lon = lat = None
+        if loc_i is not None and cell(r, loc_i):
+            parts = cell(r, loc_i).split(",")
+            if len(parts) == 2:
+                try:
+                    lat, lon = float(parts[0]), float(parts[1])
+                except ValueError:
+                    lat = lon = None
+        if lat is None and lat_i is not None and lon_i is not None:
+            try:
+                lat, lon = float(cell(r, lat_i)), float(cell(r, lon_i))
+            except ValueError:
+                lat = lon = None
+        src = "原本の座標"
+
+        addr = cell(r, addr_i)
+        if (lat is None or lon is None) and fn in GEOCODE_PREFIX and addr:
+            hit = geocode(GEOCODE_PREFIX[fn] + addr)
+            time.sleep(0.5)  # 地理院APIへの連投を避ける
+            if hit is None:
+                continue
+            lon, lat = hit
+            src = "住所からジオコーディング"
+        if lat is None or lon is None:
+            continue
+        if not (20 <= lat <= 46 and 122 <= lon <= 154):
+            continue
+
+        feats.append({
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [round(lon, 6), round(lat, 6)]},
+            "properties": {
+                "SOURCE_FILE": fn,
+                "NAME": cell(r, name_i),
+                "ADDRESS": addr,
+                "DEPTH_M": cell(r, depth_i),
+                "POS_SOURCE": src,
+            },
+        })
+    return feats
+
+
+def to_geojson() -> None:
+    """取得済みCSVを1本の GeoJSON にまとめる。QGIS でF9の点と重ねて見るため。"""
+    out = ROOT / "output" / "municipal_wells.geojson"
+    feats: list[dict] = []
+    for name, fn, _ in SOURCES:
+        p = RAW / fn
+        if not p.exists() or p.suffix == ".zip":
+            continue
+        rows = list(csv.reader(io.StringIO(decode(p.read_bytes()))))
+        got = features_of(fn, rows)
+        srcs = {f["properties"]["POS_SOURCE"] for f in got}
+        print(f"  {name:30s} {len(got):>4d}点  {'/'.join(sorted(srcs))}")
+        feats += got
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(
+        json.dumps({"type": "FeatureCollection", "features": feats}, ensure_ascii=False, indent=1) + "\n",
+        encoding="utf-8",
+    )
+    print(f"\n  -> {out}（{len(feats)}点 / {out.stat().st_size:,} bytes）")
+
+
 def main() -> None:
     import sys
 
     if "--search" in sys.argv:
         search()
+        return
+    if "--geojson" in sys.argv:
+        print("GeoJSON を作る")
+        to_geojson()
         return
     print(f"取得先: {RAW}")
     ok = ng = 0
