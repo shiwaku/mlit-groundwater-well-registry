@@ -15,6 +15,16 @@ export const DEFAULT_OPACITY = stylesJson.defaultOpacity
 export const POS_QUALITIES = ['unique', 'site', 'fallback'] as const
 export type PosQuality = (typeof POS_QUALITIES)[number]
 
+/**
+ * 既定で表示する位置精度。`unique`（実位置・単独の座標）36,415点だけを出す。
+ *
+ * 全57,847点のうち16,081点は市区町村代表点、5,351点は同一サイトへの相乗りで、
+ * 初見の人が地図を開いたときに「点がある＝そこに井戸がある」と読んでしまう。
+ * 既定を「そのまま信用してよい点」に揃えて、残りはチェックボックスで足してもらう。
+ * どの主題（色分け）で見ていても位置精度の絞り込みは共通に効く。
+ */
+export const DEFAULT_POSQ: readonly PosQuality[] = ['unique']
+
 // ---- テーマ（色分けの主題） ----
 
 interface CatDef {
@@ -165,7 +175,7 @@ export interface FilterState {
 
 export function initialFilter(): FilterState {
   return {
-    posq: new Set(POS_QUALITIES),
+    posq: new Set<string>(DEFAULT_POSQ),
     maxDist: null,
     includeUnknownDist: true,
     minDep: 0,

@@ -280,6 +280,16 @@ body {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
+/* 絞り込みで隠している区分。押すと表示に戻せるので、無効化ではなく減光で示す */
+.lg-row-off {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.lg-row-off:hover {
+  opacity: 0.75;
+}
+
 .lg-sw {
   flex: none;
   width: 13px;
