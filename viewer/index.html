@@ -50,7 +50,14 @@
 
         <div class="sub-label">位置精度</div>
         <div id="posq-filters" class="checks"></div>
-        <p class="hint hint-sub">既定では実位置（単独の座標）だけを表示しています。</p>
+        <label class="check">
+          <input id="dist-unknown" type="checkbox" />
+          <span id="dist-unknown-label">町名と突合できなかった点も表示する</span>
+        </label>
+        <p class="hint hint-sub">
+          既定は最も精度の高い組み合わせです。突合できなかったのは町字を特定できなかったためで、
+          座標が誤っているとは限りません。
+        </p>
 
         <div class="sub-label">所在地（町名）からの距離</div>
         <div class="range-row">
@@ -58,10 +65,6 @@
                  aria-label="所在地からの距離の上限" />
           <span id="dist-val" class="range-val">制限なし</span>
         </div>
-        <label class="check">
-          <input id="dist-unknown" type="checkbox" checked />
-          <span id="dist-unknown-label">判定不能も表示する</span>
-        </label>
 
         <div class="sub-label">掘削深度の下限</div>
         <div class="range-row">

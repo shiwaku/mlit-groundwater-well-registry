@@ -225,12 +225,12 @@ function renderLegend(): void {
       if (hiddenPosq) {
         filter.posq.add(it.id)
         syncPosqChecks()
-        renderCount()
       } else {
         filter.isolate = filter.isolate === it.id ? null : it.id
       }
       renderLegend()
       repaint()
+      renderCount()
     })
     legendEl.append(row)
   }
@@ -293,39 +293,51 @@ const depRange = document.getElementById('dep-range') as HTMLInputElement
 const depVal = document.getElementById('dep-val') as HTMLElement
 
 distRange.max = String(DIST_STOPS.length)
+// 「判定不能」だと位置が怪しい点に読めるが、実際は町字を特定できず距離を測れなかった
+// だけで座標の質とは別物。何ができなかったのかを書く。
 ;(document.getElementById('dist-unknown-label') as HTMLElement).textContent =
-  `判定不能（${(STATS.total - STATS.distResolved).toLocaleString()}点）も表示する`
+  `町名と突合できなかった点（${(STATS.total - STATS.distResolved).toLocaleString()}点）も表示する`
 
+// 距離の上限・深度は母数を数えられないので、動かすと件数表示が「最大 n」に変わる。
+// どれを動かしても renderCount() を通す。
 function syncDist(): void {
   const i = Number(distRange.value)
   filter.maxDist = i >= DIST_STOPS.length ? null : DIST_STOPS[i]
   distVal.textContent = filter.maxDist === null ? '制限なし' : `${filter.maxDist}km 以内`
   repaint()
+  renderCount()
 }
 distRange.addEventListener('input', syncDist)
 distUnknown.addEventListener('change', () => {
   filter.includeUnknownDist = distUnknown.checked
   repaint()
+  renderCount()
 })
 depRange.addEventListener('input', () => {
   filter.minDep = Number(depRange.value)
   depVal.textContent = filter.minDep === 0 ? '制限なし' : `${filter.minDep}m 以上`
   repaint()
+  renderCount()
 })
 
 ;(document.getElementById('filter-reset') as HTMLButtonElement).addEventListener('click', () => {
   // 初期状態の定義は initialFilter() ひとつに置く（既定の位置精度もそこ）
   Object.assign(filter, initialFilter())
-  syncPosqChecks()
-  distRange.value = String(DIST_STOPS.length)
-  distVal.textContent = '制限なし'
-  distUnknown.checked = true
-  depRange.value = '0'
-  depVal.textContent = '制限なし'
+  syncFilterUi()
   renderLegend()
   repaint()
   renderCount()
 })
+
+/** 入力欄の見た目を filter に合わせ直す。初期化とリセットで共用する。 */
+function syncFilterUi(): void {
+  syncPosqChecks()
+  distUnknown.checked = filter.includeUnknownDist
+  distRange.value = String(filter.maxDist === null ? DIST_STOPS.length : DIST_STOPS.indexOf(filter.maxDist))
+  distVal.textContent = filter.maxDist === null ? '制限なし' : `${filter.maxDist}km 以内`
+  depRange.value = String(filter.minDep)
+  depVal.textContent = filter.minDep === 0 ? '制限なし' : `${filter.minDep}m 以上`
+}
 
 // ---- 件数・ズームの注記 ----
 
@@ -333,10 +345,10 @@ const countEl = document.getElementById('count') as HTMLElement
 const zoomNoteEl = document.getElementById('zoom-note') as HTMLElement
 
 function renderCount(): void {
-  const sel = selectedTotal(filter)
+  const { n, exact } = selectedTotal(filter)
   countEl.innerHTML =
-    `位置精度で選択中 <b>${sel.toLocaleString()}</b> / 全 ${STATS.total.toLocaleString()} 点` +
-    `<span class="pp-note">（距離・深度の絞り込み後の件数は数えていません）</span>`
+    `表示中 <b>${exact ? '' : '最大 '}${n.toLocaleString()}</b> / 全 ${STATS.total.toLocaleString()} 点` +
+    (exact ? '' : '<span class="pp-note">（距離の上限・深度・凡例での単独表示で絞ったぶんは数えていません）</span>')
 }
 
 function renderZoomNote(): void {
@@ -487,7 +499,7 @@ renderThemeBtn()
 buildThemeButtons()
 buildPosqFilters()
 setActiveTheme(themeKey)
-syncDist()
+syncFilterUi()
 renderCount()
 renderZoomNote()
 if (isMobile) panel.classList.add('collapsed')

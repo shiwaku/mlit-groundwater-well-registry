@@ -15,6 +15,11 @@
     "6": 573
   },
   "distResolved": 24355,
+  "posQualityDistResolved": {
+    "unique": 15452,
+    "fallback": 5662,
+    "site": 3241
+  },
   "nenRange": [
     1952,
     2003
