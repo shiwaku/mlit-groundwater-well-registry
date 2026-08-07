@@ -206,10 +206,14 @@ function renderLegend(): void {
   const def = themeOf(themeKey)
   legendEl.innerHTML = ''
   for (const it of legendFor(def, theme)) {
+    // 位置精度テーマの凡例は絞り込みのチェックボックスと同じ区分を指しているので、
+    // 隠している区分の行を押しても何も出ない。行を淡くして、押したら表示に戻す。
+    const hiddenPosq = def.key === 'posq' && !filter.posq.has(it.id)
     const row = document.createElement('button')
     row.type = 'button'
-    row.className = 'lg-row'
-    row.setAttribute('aria-pressed', String(filter.isolate === it.id))
+    row.className = hiddenPosq ? 'lg-row lg-row-off' : 'lg-row'
+    row.setAttribute('aria-pressed', String(!hiddenPosq && filter.isolate === it.id))
+    if (hiddenPosq) row.title = '絞り込みで非表示にしています。押すと表示に戻します。'
     const sw = document.createElement('span')
     sw.className = it.hollow ? 'lg-sw lg-sw-hollow' : 'lg-sw'
     if (it.hollow) sw.style.borderColor = it.color
@@ -218,14 +222,21 @@ function renderLegend(): void {
     label.textContent = it.label
     row.append(sw, label)
     row.addEventListener('click', () => {
-      filter.isolate = filter.isolate === it.id ? null : it.id
+      if (hiddenPosq) {
+        filter.posq.add(it.id)
+        syncPosqChecks()
+        renderCount()
+      } else {
+        filter.isolate = filter.isolate === it.id ? null : it.id
+      }
       renderLegend()
       repaint()
     })
     legendEl.append(row)
   }
-  // 主題が位置精度でなくても輪郭のみ＝fallback は効いているので、その説明を添える
-  if (def.key !== 'posq') {
+  // 主題が位置精度でなくても輪郭のみ＝fallback は効いているので、その説明を添える。
+  // ただし fallback を隠しているときは指すものが無いので出さない。
+  if (def.key !== 'posq' && filter.posq.has('fallback')) {
     const note = document.createElement('p')
     note.className = 'hint hint-sub'
     note.textContent = '輪郭のみの点は市区町村代表点（実位置ではない）です。'
@@ -249,10 +260,12 @@ function buildPosqFilters(): void {
     label.className = 'check'
     const cb = document.createElement('input')
     cb.type = 'checkbox'
+    cb.dataset.q = q
     cb.checked = filter.posq.has(q)
     cb.addEventListener('change', () => {
       if (cb.checked) filter.posq.add(q)
       else filter.posq.delete(q)
+      renderLegend()
       repaint()
       renderCount()
     })
@@ -260,6 +273,13 @@ function buildPosqFilters(): void {
     t.textContent = `${POSQ_LABEL[q]}（${(counts[q] ?? 0).toLocaleString()}点）`
     label.append(cb, t)
     posqDiv.append(label)
+  }
+}
+
+/** チェックボックスの見た目を filter.posq に合わせ直す（凡例やリセットから変えたとき）。 */
+function syncPosqChecks(): void {
+  for (const cb of posqDiv.querySelectorAll<HTMLInputElement>('input')) {
+    cb.checked = filter.posq.has(cb.dataset.q as string)
   }
 }
 
@@ -294,12 +314,9 @@ depRange.addEventListener('input', () => {
 })
 
 ;(document.getElementById('filter-reset') as HTMLButtonElement).addEventListener('click', () => {
-  filter.posq = new Set(POS_QUALITIES)
-  filter.maxDist = null
-  filter.includeUnknownDist = true
-  filter.minDep = 0
-  filter.isolate = null
-  for (const cb of posqDiv.querySelectorAll<HTMLInputElement>('input')) cb.checked = true
+  // 初期状態の定義は initialFilter() ひとつに置く（既定の位置精度もそこ）
+  Object.assign(filter, initialFilter())
+  syncPosqChecks()
   distRange.value = String(DIST_STOPS.length)
   distVal.textContent = '制限なし'
   distUnknown.checked = true
