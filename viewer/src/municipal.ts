@@ -50,8 +50,14 @@ const ATTRIBUTION =
 
 const ICON_SOLID = 'muni-solid'
 const ICON_HOLLOW = 'muni-hollow'
-/** アイコンの一辺（デバイスピクセル）。pixelRatio 2 で addImage するので見た目は半分。 */
-const ICON_PX = 28
+/**
+ * アイコンの一辺（デバイスピクセル）。pixelRatio 2 で addImage するので見た目は半分。
+ * icon-size で 1.0 を超えると拡大されて眠くなるので、いちばん大きく出す z16 が
+ * ちょうど 1.0 になる大きさで描いておく。
+ */
+const ICON_PX = 72
+/** ひし形の頂点が切れないよう空ける余白。90°の角はマイター継ぎが線幅の約1.4倍はみ出す。 */
+const ICON_PAD = 8
 
 const colorOf = (mode: Theme): string => (mode === 'dark' ? CFG.color.dark : CFG.color.light)
 const surfaceOf = (mode: Theme): string =>
@@ -71,7 +77,7 @@ function diamondImage(color: string, surface: string, hollow: boolean): ImageDat
   if (!ctx) return null
 
   const m = ICON_PX / 2
-  const r = m - 4 // 線幅ぶんの余白を残す
+  const r = m - ICON_PAD
   const path = new Path2D()
   path.moveTo(m, m - r)
   path.lineTo(m + r, m)
@@ -80,14 +86,14 @@ function diamondImage(color: string, surface: string, hollow: boolean): ImageDat
   path.closePath()
 
   if (hollow) {
-    ctx.lineWidth = 5
+    ctx.lineWidth = 8
     ctx.strokeStyle = color
     ctx.stroke(path)
   } else {
     ctx.fillStyle = color
     ctx.fill(path)
     // 点が重なっても粒が分かれて見えるよう、背景色の細いリングを回す（F9 の丸と同じ扱い）
-    ctx.lineWidth = 2
+    ctx.lineWidth = 3
     ctx.strokeStyle = surface
     ctx.stroke(path)
   }
@@ -106,10 +112,17 @@ function addImages(map: maplibregl.Map, mode: Theme): void {
   }
 }
 
-/** ズームに応じた大きさ。F9 の RADIUS と同じ勾配で、丸より一回り大きく見えるようにする。 */
+/**
+ * ズームに応じた大きさ。F9 の RADIUS と同じ勾配だが、一回り大きく出す。
+ *
+ * ひし形は同じ差し渡しの丸より面積が6割ほど小さく、並べると沈んで見える。
+ * 数がF9の2桁下で、しかも自分でチェックを入れて出すレイヤなので、
+ * 半対角が丸の半径の1.5〜1.6倍になるところまで上げている
+ * （画像の半対角は size 1.0 で 14 CSS px）。
+ */
 const ICON_SIZE: ExpressionSpecification = [
   'interpolate', ['linear'], ['zoom'],
-  4, 0.5, 8, 0.75, 12, 1.05, 16, 1.5,
+  4, 0.22, 8, 0.4, 12, 0.65, 16, 1,
 ] as unknown as ExpressionSpecification
 
 function iconExpr(): ExpressionSpecification {
