@@ -299,7 +299,7 @@ def addr_index(rows: list[list[str]]) -> int | None:
     return col_index(rows, ADDR_HINTS)
 
 
-def features_of(fn: str, rows: list[list[str]]) -> list[dict]:
+def features_of(name: str, fn: str, rows: list[list[str]]) -> list[dict]:
     """1ファイルを GeoJSON のフィーチャ列にする。
 
     座標を持つものはその値を使い、住所しか無いものは番地までジオコーディングする。
@@ -352,6 +352,9 @@ def features_of(fn: str, rows: list[list[str]]) -> list[dict]:
             "type": "Feature",
             "geometry": {"type": "Point", "coordinates": [round(lon, 6), round(lat, 6)]},
             "properties": {
+                # SOURCE_FILE は処理の都合の名前で、人に見せる出典名にはならない。
+                # ビューワのポップアップが出典を出せるよう、SOURCES の表示名も入れる。
+                "SOURCE_NAME": name,
                 "SOURCE_FILE": fn,
                 "NAME": cell(r, name_i),
                 "ADDRESS": addr,
@@ -363,15 +366,21 @@ def features_of(fn: str, rows: list[list[str]]) -> list[dict]:
 
 
 def to_geojson() -> None:
-    """取得済みCSVを1本の GeoJSON にまとめる。QGIS でF9の点と重ねて見るため。"""
+    """取得済みCSVを1本の GeoJSON にまとめる。
+
+    QGIS でF9の点と重ねて見るためのものだが、ビューワ（viewer/）も同じファイルを
+    重ね合わせ用に読む。件数は凡例に出すので data/municipal_stats.json にも書く
+    （描画中のフィーチャ数から数えると、読み込み前や画面外の点を落としてしまう）。
+    """
     out = ROOT / "output" / "municipal_wells.geojson"
+    stats_out = ROOT / "data" / "municipal_stats.json"
     feats: list[dict] = []
     for name, fn, _ in SOURCES:
         p = RAW / fn
         if not p.exists() or p.suffix == ".zip":
             continue
         rows = list(csv.reader(io.StringIO(decode(p.read_bytes()))))
-        got = features_of(fn, rows)
+        got = features_of(name, fn, rows)
         srcs = {f["properties"]["POS_SOURCE"] for f in got}
         print(f"  {name:30s} {len(got):>4d}点  {'/'.join(sorted(srcs))}")
         feats += got
@@ -381,6 +390,22 @@ def to_geojson() -> None:
         encoding="utf-8",
     )
     print(f"\n  -> {out}（{len(feats)}点 / {out.stat().st_size:,} bytes）")
+
+    by_src: dict[str, int] = {}
+    by_pos: dict[str, int] = {}
+    for f in feats:
+        by_src[f["properties"]["SOURCE_NAME"]] = by_src.get(f["properties"]["SOURCE_NAME"], 0) + 1
+        by_pos[f["properties"]["POS_SOURCE"]] = by_pos.get(f["properties"]["POS_SOURCE"], 0) + 1
+    stats_out.write_text(
+        json.dumps(
+            {"total": len(feats), "bySource": by_src, "byPosSource": by_pos},
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    print(f"  -> {stats_out}")
 
 
 def main() -> None:

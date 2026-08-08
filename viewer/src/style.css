@@ -8,6 +8,8 @@
   --accent: #2a78d6;
   --accent-ink: #ffffff;
   --warn: #d03b3b;
+  /* 重ね合わせ（自治体データ）。data/viewer_styles.json の municipal.color と同じ値 */
+  --municipal: #4a3aa7;
   --track: rgba(20, 22, 26, 0.14);
   --hover: rgba(20, 22, 26, 0.05);
   --shadow: 0 10px 30px -10px rgba(16, 24, 40, 0.35), 0 2px 8px -4px rgba(16, 24, 40, 0.2);
@@ -25,6 +27,7 @@
   --accent: #4f97f0;
   --accent-ink: #0a0c10;
   --warn: #e66767;
+  --municipal: #9085e9;
   --track: rgba(255, 255, 255, 0.16);
   --hover: rgba(255, 255, 255, 0.07);
   --shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.6), 0 2px 8px -4px rgba(0, 0, 0, 0.5);
@@ -290,12 +293,28 @@ body {
   opacity: 0.75;
 }
 
+/* 押せない凡例（重ね合わせ用）。単独表示の切替を持たないので button にしない */
+.lg-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+
 .lg-sw {
   flex: none;
   width: 13px;
   height: 13px;
   border-radius: 50%;
   border: 1px solid var(--line-2);
+}
+
+/* 地図のマーカーがひし形なので、凡例の見本も回して形をそろえる */
+.lg-sw-diamond {
+  border-radius: 2px;
+  transform: rotate(45deg) scale(0.85);
 }
 
 /* 「輪郭のみ」の点（市区町村代表点）を凡例でもそのまま表現する */
@@ -445,6 +464,11 @@ body {
 
 .pp-q-fallback {
   color: var(--warn);
+}
+
+/* 自治体データ（別データセットの重ね合わせ） */
+.pp-q-municipal {
+  color: var(--municipal);
 }
 
 /* ---- 現地確認リンク ---- */

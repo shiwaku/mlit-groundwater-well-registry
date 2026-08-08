@@ -10,8 +10,11 @@ on:
     paths:
       - "viewer/**"
       - "data/viewer_styles.json"
+      - "data/municipal_stats.json"
       - "scripts/14_build_pmtiles.py"
       - "output/f9_wells_2003.parquet"
+      # 重ね合わせ用。viewer が import しているのでビルドに含まれる
+      - "output/municipal_wells.geojson"
       - ".github/workflows/pages.yml"
 
 permissions:

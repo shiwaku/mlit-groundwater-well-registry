@@ -76,6 +76,21 @@
 
       <div class="field">
         <div class="field-head">
+          <span class="field-label">重ね合わせ</span>
+        </div>
+        <label class="check">
+          <input id="municipal-toggle" type="checkbox" />
+          <span id="municipal-label"></span>
+        </label>
+        <div id="municipal-legend" class="legend" hidden></div>
+        <p class="hint hint-sub">
+          自治体が公開している防災井戸・観測井のオープンデータです。F9とは別の調査で、
+          同じ井戸が両方に載っているとは限りません（深度を公開しているのは船橋市だけです）。
+        </p>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
           <span class="field-label">表示</span>
         </div>
         <div class="range-row">
@@ -91,6 +106,7 @@
     <footer class="panel-foot">
       <strong>非公式</strong>のビューワです。出典:
       <a href="https://nlftp.mlit.go.jp/kokjo/inspect/landclassification/water/f9_exp.html" target="_blank" rel="noopener">国土交通省「土地分類調査・水基本調査 全国地下水資料台帳調査」</a>（2003年頃に配布されていた地域別シェープファイル／国立国会図書館 WARP 収集）<br />
+      重ね合わせ: 船橋市・千葉市・市川市・流山市・東村山市・相模原市・練馬区・熊本県の各オープンデータ<br />
       加工: <a href="https://github.com/shiwaku/mlit-groundwater-well-registry" target="_blank" rel="noopener">mlit-groundwater-well-registry</a><br />
       背景: 国土地理院 最適化ベクトルタイル／全国最新写真<br />
       <span id="build-ver" class="build-ver"></span>

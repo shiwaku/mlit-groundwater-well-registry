@@ -22,6 +22,7 @@
 | `output/f9_wells_2003.csv` | **座標が入っていた2003年版**（配布終了。ジオコーディング不要） | 57,847 × 51 | 18MB |
 | `output/f9_wells_2003.parquet` | 同上の GeoParquet | 57,847 × 52 | 5.7MB |
 | `output/f9_2003_error_funabashi.csv` | 2003年版の座標を自治体データと突合した実測誤差 | 8 × 16 | 1KB |
+| `output/municipal_wells.geojson` | 自治体が公開している井戸データ9件を1本にまとめたもの（ビューワの重ね合わせ） | 656 × 5 | 255KB |
 
 CSVの文字コードは **UTF-8（BOMなし）**、改行は CRLF です。
 
@@ -432,7 +433,9 @@ F9のどの行と同じ井戸なのかを確定できず、距離を測っても
 #### GeoJSON にまとめたもの
 
 `--geojson` を付けると、9件のCSVを1本の **[`output/municipal_wells.geojson`](output/municipal_wells.geojson)（656点）**
-にまとめます。QGIS などでF9の点と重ねて見るためのものです。
+にまとめます。QGIS などでF9の点と重ねて見るためのもので、
+[ビューワ](#重ね合わせ自治体の井戸)もこのファイルをそのまま読んでいます。
+凡例に出す件数は同時に `data/municipal_stats.json` へ書き出します。
 
 | 由来 | 点数 | 内訳 |
 |---|---:|---|
@@ -440,7 +443,8 @@ F9のどの行と同じ井戸なのかを確定できず、距離を測っても
 | 住所からジオコーディング | 153 | 練馬区102＋23・船橋市28 |
 
 座標を持たない自治体は番地までの住所を国土地理院の住所検索APIで解決しています
-（`13_eval_2003_funabashi.py` と同じ経路）。**どちらで得た座標かは `POS_SOURCE` 列に残しています。**
+（`13_eval_2003_funabashi.py` と同じ経路）。**どちらで得た座標かは `POS_SOURCE` 列に残しています**
+（`SOURCE_NAME` にはどの自治体のどのデータかを入れています）。
 混ぜたまま渡すと、ジオコーディング由来の点を原本の実測座標と誤解されるためです。
 船橋市の28点をこの経路で解決した結果は、既存の正解データ8点と**すべて0.0m差で一致**します。
 
@@ -731,6 +735,34 @@ UI では「判定不能」ではなく「町名と突合できなかった点�
 検証結果と、7分類（使用目的）では色だけでは足りないこと・その代わりに凡例クリックでの単独表示を用意したことを
 同ファイルのコメントに残しています。
 
+### 重ね合わせ（自治体の井戸）
+
+「自治体のオープンデータを全走査した結果」で集めた
+[`output/municipal_wells.geojson`](output/municipal_wells.geojson)（9自治体・656点）を、
+チェックひとつで重ねられます。既定は非表示で、入れたときに初めて GeoJSON を取りに行きます
+（F9のビューワなので主役は変えず、使わない人に260KBを読ませないため）。
+
+![自治体データを重ねたところ](docs/viewer-municipal.png)
+
+F9とは**別の調査**です。同じ井戸が両方に載っているとは限らず、深度を公開しているのは船橋市だけです。
+そのぶん見た目でも混ざらないようにしています。
+
+| | F9（2003年版） | 自治体データ |
+|---|---|---|
+| マーカー | ● 丸 | ◆ ひし形 |
+| 色 | 主題（色分け）による | violet 固定（`#4a3aa7` / dark `#9085e9`） |
+| 塗り分け | `fallback` だけ輪郭のみ | `原本の座標` 503点は塗り／`住所からジオコーディング` 153点は輪郭のみ |
+
+**形を一次の手がかりにしているのは、色では足りないからです。** F9側は主題によらず青が主役なので
+空いている色相は violet しかありませんが、all-pairs 検証では dark の violet↔blue が
+CVD ΔE 1.9・通常視 9.8 で FAIL します（light は 16.3 で PASS）。色以外の手がかりとして
+マーカーの形を変えました。判断の根拠は `data/viewer_styles.json` の `_municipalComment` に残しています。
+
+点をクリックすると名称・所在地・深度・座標の由来・出典のポップアップが開きます（現地確認リンクは同じ）。
+出典表示は GeoJSON のソースに持たせてあるので、チェックを外すと地図の出典欄からも消えます。
+件数は [`data/municipal_stats.json`](data/municipal_stats.json) から読んでいます
+（`15_fetch_municipal_wells.py --geojson` が GeoJSON と一緒に書き出します）。
+
 ### 現地確認
 
 点をクリックすると全属性のポップアップが開き、**Google マップ / ストリートビュー / 地理院地図** への
@@ -781,6 +813,7 @@ cd viewer && npm install && npm run dev   # http://localhost:8000
 │   ├── 12_shp2003_to_dataset.py    上記8本を1つのCSV / GeoParquet へ
 │   ├── 13_eval_2003_funabashi.py   2003年版の座標を自治体の防災井戸データと突合
 │   ├── 14_build_pmtiles.py         2003年版 -> PMTiles（ビューワ用ベクタタイル）
+│   ├── 15_fetch_municipal_wells.py 自治体が公開する井戸データの取得・判定・GeoJSON化
 │   └── lib/
 │       ├── adr_norm.py             ADR（所在地）の正規化と候補生成
 │       └── pdf_geo.py              位置図PDFの解析とジオリファレンス
@@ -788,6 +821,8 @@ cd viewer && npm install && npm run dev   # http://localhost:8000
 ├── data/
 │   ├── viewer_styles.json          ビューワの配色・凡例・属性和名（唯一の出所）
 │   ├── viewer_stats.json           ビューワが出す母数（14 が生成）
+│   ├── municipal_stats.json        重ね合わせの件数（15 --geojson が生成）
+│   ├── raw/municipal/              自治体の井戸データ原本（gitignore・15 で再取得）
 │   ├── raw/{zip,doc}/              原本（gitignore・00 で再取得）
 │   ├── raw/f9_pdf/                 位置図PDF 37本（gitignore・09 で再取得）
 │   ├── raw/shp2003/                座標付き2003年版の地域別zip 8本（gitignore・11 で再取得）

@@ -22,6 +22,16 @@ import {
   themeOf,
   type FilterState,
 } from './layers'
+import {
+  MUNICIPAL_LABEL,
+  MUNICIPAL_LYR,
+  MUNICIPAL_STATS,
+  addMunicipalLayers,
+  municipalLegend,
+  municipalPopupHtml,
+  removeMunicipalLayers,
+  repaintMunicipal,
+} from './municipal'
 import { applyThemeAttr, initialTheme, type Theme } from './theme'
 import './style.css'
 
@@ -40,6 +50,8 @@ let theme: Theme = initialTheme()
 let base: Basemap = 'pale'
 let themeKey: string = DEFAULT_THEME
 let opacity = DEFAULT_OPACITY
+/** 自治体データの重ね合わせ。既定は非表示（F9 のビューワなので主役を変えない）。 */
+let showMunicipal = false
 const filter: FilterState = initialFilter()
 applyThemeAttr(theme)
 
@@ -114,6 +126,9 @@ function addDataLayers(): void {
       },
     })
   }
+  // 自治体データは F9 の上（点数が2桁少ないので下に敷くと埋もれる）、
+  // ただし選択リングより下に重ねる。
+  addMunicipalLayers(map, theme, opacity, showMunicipal, HL_LYR)
 }
 
 function repaint(): void {
@@ -124,6 +139,7 @@ function repaint(): void {
   map.setPaintProperty(LYR, 'circle-stroke-color', strokeColorExpr(def, theme))
   map.setPaintProperty(LYR, 'circle-opacity', opacity)
   map.setPaintProperty(LYR, 'circle-stroke-opacity', opacity)
+  repaintMunicipal(map, theme, opacity)
 }
 
 function setHighlight(f: maplibregl.MapGeoJSONFeature | null): void {
@@ -154,6 +170,7 @@ themeBtn.addEventListener('click', () => {
   applyThemeAttr(theme)
   renderThemeBtn()
   renderLegend()
+  renderMunicipalLegend()
   reloadStyle()
 })
 
@@ -339,6 +356,40 @@ function syncFilterUi(): void {
   depVal.textContent = filter.minDep === 0 ? '制限なし' : `${filter.minDep}m 以上`
 }
 
+// ---- 重ね合わせ（自治体データ） ----
+
+const municipalToggle = document.getElementById('municipal-toggle') as HTMLInputElement
+const municipalLegendEl = document.getElementById('municipal-legend') as HTMLElement
+;(document.getElementById('municipal-label') as HTMLElement).textContent =
+  `${MUNICIPAL_LABEL}（${MUNICIPAL_STATS.total.toLocaleString()}点）`
+
+function renderMunicipalLegend(): void {
+  municipalLegendEl.hidden = !showMunicipal
+  municipalLegendEl.innerHTML = ''
+  if (!showMunicipal) return
+  for (const it of municipalLegend(theme)) {
+    const row = document.createElement('div')
+    row.className = 'lg-item'
+    const sw = document.createElement('span')
+    sw.className = it.hollow ? 'lg-sw lg-sw-diamond lg-sw-hollow' : 'lg-sw lg-sw-diamond'
+    if (it.hollow) sw.style.borderColor = it.color
+    else sw.style.background = it.color
+    const label = document.createElement('span')
+    label.textContent = `${it.label}（${it.n.toLocaleString()}点）`
+    row.append(sw, label)
+    municipalLegendEl.append(row)
+  }
+}
+
+municipalToggle.addEventListener('change', () => {
+  showMunicipal = municipalToggle.checked
+  // 表示にしたときだけ GeoJSON を取りに行く。外したらソースごと落として、
+  // 出典表示（ソースに持たせている）も一緒に消えるようにする。
+  if (showMunicipal) addMunicipalLayers(map, theme, opacity, true, HL_LYR)
+  else removeMunicipalLayers(map)
+  renderMunicipalLegend()
+})
+
 // ---- 件数・ズームの注記 ----
 
 const countEl = document.getElementById('count') as HTMLElement
@@ -402,10 +453,16 @@ function setBase(next: Basemap): void {
 
 // ---- ホバー / クリック ----
 
+/** クリック/ホバーの当たり判定に使うレイヤ。重ね合わせが出ているときだけ足す。 */
+function hitLayers(): string[] {
+  return [LYR, MUNICIPAL_LYR].filter((id) => map.getLayer(id))
+}
+
 if (window.matchMedia('(hover: hover)').matches) {
   map.on('mousemove', (e) => {
-    if (!map.getLayer(LYR)) return
-    const hit = map.queryRenderedFeatures(e.point, { layers: [LYR] }).length > 0
+    const layers = hitLayers()
+    if (!layers.length) return
+    const hit = map.queryRenderedFeatures(e.point, { layers }).length > 0
     map.getCanvas().style.cursor = hit ? 'pointer' : ''
   })
 }
@@ -439,19 +496,22 @@ function nudgeIntoView(pop: maplibregl.Popup): void {
 
 let popup: maplibregl.Popup | null = null
 map.on('click', (e) => {
-  if (!map.getLayer(LYR)) return
+  const layers = hitLayers()
+  if (!layers.length) return
   // 点は小さいので、クリック位置の周囲数pxを拾う
   const pad = 6
   const box: [maplibregl.PointLike, maplibregl.PointLike] = [
     [e.point.x - pad, e.point.y - pad],
     [e.point.x + pad, e.point.y + pad],
   ]
-  const feats = map.queryRenderedFeatures(box, { layers: [LYR] })
-  if (!feats.length) {
+  // 上に重ねているほうを先に見る。同じ場所にF9と自治体の点が重なることは多いので、
+  // 「見えている（前面の）点を押した」と読めるほうに合わせる。
+  const feats = map.queryRenderedFeatures(box, { layers })
+  const f = feats.find((x) => x.layer.id === MUNICIPAL_LYR) ?? feats[0]
+  if (!f) {
     setHighlight(null)
     return
   }
-  const f = feats[0]
   if (popup) {
     const old = popup
     popup = null
@@ -461,14 +521,16 @@ map.on('click', (e) => {
 
   const p = f.properties as Record<string, unknown>
   // 座標は属性の LAT/LON（原本の値）を使う。タイルのジオメトリは z9 で約19mに
-  // 量子化されているため、現地確認のリンクには向かない。
+  // 量子化されているため、現地確認のリンクには向かない。自治体データは GeoJSON を
+  // そのまま読んでいるので、ジオメトリが原本の値そのもの。
   const geom = f.geometry as GeoJSON.Point
   const lat = typeof p.LAT === 'number' ? p.LAT : geom.coordinates[1]
   const lon = typeof p.LON === 'number' ? p.LON : geom.coordinates[0]
 
+  const html = f.layer.id === MUNICIPAL_LYR ? municipalPopupHtml(p, lat, lon) : popupHtml(p, lat, lon)
   const pop = new maplibregl.Popup({ closeButton: true, maxWidth: '340px', className: 'well-popup' })
     .setLngLat([lon, lat])
-    .setHTML(popupHtml(p, lat, lon))
+    .setHTML(html)
     .addTo(map)
   nudgeIntoView(pop)
   pop.on('close', () => {
@@ -500,6 +562,8 @@ buildThemeButtons()
 buildPosqFilters()
 setActiveTheme(themeKey)
 syncFilterUi()
+municipalToggle.checked = showMunicipal
+renderMunicipalLegend()
 renderCount()
 renderZoomNote()
 if (isMobile) panel.classList.add('collapsed')
