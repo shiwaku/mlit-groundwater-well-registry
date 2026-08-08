@@ -258,7 +258,7 @@ const ZERO_IS_MISSING = new Set(stylesJson.zeroIsMissing)
 const DATE_FIELDS = new Set(stylesJson.dateFields)
 const POPUP_ORDER = stylesJson.popupOrder as string[]
 
-function esc(s: string): string {
+export function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
 }
 
@@ -298,7 +298,7 @@ function fmtValue(key: string, v: unknown): [string, boolean] {
 }
 
 /** 現地確認用の外部リンク。座標は原本の値（LAT/LON 属性）をそのまま使う。 */
-function fieldLinks(lat: number, lon: number): string {
+export function fieldLinks(lat: number, lon: number): string {
   const q = `${lat.toFixed(6)},${lon.toFixed(6)}`
   const links: [string, string, string][] = [
     ['Google マップ', `https://www.google.com/maps/search/?api=1&query=${q}`, '🗺️'],

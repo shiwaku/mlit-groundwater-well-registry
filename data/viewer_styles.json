@@ -93,6 +93,34 @@
     }
   ],
 
+  "_municipalComment": [
+    "自治体が公開している井戸データ（output/municipal_wells.geojson・656点）の重ね合わせ。",
+    "F9 の主題色とは別のデータなので、どの主題を選んでいても同じ見え方で描く。",
+    "",
+    "配色の根拠:",
+    "  検証済みパレットのスロット7（violet）。F9 側は主題によらず青が主役になるため、",
+    "  空いている色相はここしか無い。ただし all-pairs 検証で dark の violet↔blue は",
+    "  CVD ΔE 1.9・通常視 9.8 で FAIL する（light は 16.3 で PASS）。",
+    "  そこで色に頼らず、マーカーの形をF9の丸から**ひし形**に変えて一次の手がかりにしている",
+    "  （＝色以外の二次エンコード）。座標の由来は塗り／輪郭のみで描き分ける。"
+  ],
+  "municipal": {
+    "label": "自治体の井戸（防災井戸・観測井）",
+    "color": { "light": "#4a3aa7", "dark": "#9085e9" },
+    "posSources": [
+      { "v": "原本の座標", "label": "原本の座標", "hollow": false },
+      { "v": "住所からジオコーディング", "label": "住所からジオコーディング", "hollow": true }
+    ],
+    "attributeLabels": {
+      "NAME": "名称",
+      "ADDRESS": "所在地",
+      "DEPTH_M": "深度",
+      "POS_SOURCE": "座標の由来",
+      "SOURCE_NAME": "出典"
+    },
+    "popupOrder": ["NAME", "ADDRESS", "DEPTH_M", "POS_SOURCE", "SOURCE_NAME"]
+  },
+
   "attributeLabels": {
     "NEN": "調査年度",
     "PREF": "都道府県コード",
